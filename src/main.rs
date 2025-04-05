@@ -1,6 +1,6 @@
-use config::Config;
-
 use error::AppError;
+use tracing::Level;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod error;
@@ -20,5 +20,12 @@ async fn main() {
             std::process::exit(1);
         }
     };
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().pretty())
+        .init();
+
+    tracing::info!("Logging initialized with level: {:?}", Level::INFO);
+
     println!("Hello, world!");
 }
