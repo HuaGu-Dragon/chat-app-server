@@ -1,0 +1,20 @@
+[server]
+host = "localhost"
+port = 8080
+
+[database]
+url = "postgres://postgres:root@localhost:5432/chat_db"
+max_connections = 5
+min_connections = 1
+connection_timeout = 30
+
+[jwt]
+secret = "secret"
+expiration = 3600
+
+[cors]
+allowed_origins = ["*"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE"]
+allowed_headers = ["Content-Type", "Authorization"]
+max_age = 3600
+allow_credentials = true
