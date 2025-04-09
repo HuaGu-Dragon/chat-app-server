@@ -1,0 +1,25 @@
+
+# start
+GET http://localhost:8080/config HTTP/1.1
+
+###
+
+# jwt summon
+# This is a test to summon a JWT token from the server
+# The server should return a JWT token for the user "mike"
+# use it with the path /summon_jwt/{your_username}
+# The server should return a JWT token for the user "mike"
+
+GET http://localhost:8080/summon_jwt/mike HTTP/1.1
+
+###
+
+# login in with the token
+# This is a test to login in with the token
+# use it with the path /login
+# Bearer {your_token}
+# The server should return a JWT token for the user "mike"
+@token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtaWtlIiwiZXhwIjoxNzQ0NDI3NTM0LCJpYXQiOjE3NDQyMTE1MzR9.MVoRYjorRbN20HrnO-xgJn5Xta5VmF2k9YqcFNXmmL0
+
+POST http://localhost:8080/protect/login HTTP/1.1
+Authorization: Bearer {{token}}
