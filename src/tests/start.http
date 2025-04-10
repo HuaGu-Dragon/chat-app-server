@@ -21,10 +21,10 @@ GET http://localhost:8080/summon_jwt/mike HTTP/1.1
 # The server should return a JWT token for the user "mike"
 @token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtaWtlIiwiZXhwIjoxNzQ0NDI3NTM0LCJpYXQiOjE3NDQyMTE1MzR9.MVoRYjorRbN20HrnO-xgJn5Xta5VmF2k9YqcFNXmmL0
 
-@token2 = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbkBhZG1pbi5jb20iLCJleHAiOjE3NDQ1MDY4NTIsImlhdCI6MTc0NDI5MDg1Mn0.rXEbuLjgH1QisZpHh_DC3sTjonKypRgU9QUMdHBov2c
+@token2 = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbkBhZG1pbi5jb20iLCJleHAiOjE3NDQ1MDg4NTMsImlhdCI6MTc0NDI5Mjg1M30.QcSIbtCUDgyVR_3fifbEs0Eab19O9UmzVFIYsTRYIVQ
 
 POST http://localhost:8080/protect/login HTTP/1.1
-Authorization: Bearer {{token}}
+Authorization: Bearer {{token2}}
 
 ###
 # register
@@ -52,5 +52,5 @@ Content-Type: application/json
 
 {
     "email": "admin@admin.com",
-    "password": "11111111"
+    "password": "12345678"
 }
