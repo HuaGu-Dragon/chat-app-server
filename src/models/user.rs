@@ -3,11 +3,13 @@ use argon2::{
     PasswordVerifier,
 };
 use chrono::{DateTime, Utc};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool};
+use tokio::sync::OnceCell;
 use uuid::Uuid;
 
-use crate::Result;
+use crate::{service::jwt::TokenPayload, Result};
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct User {
@@ -32,12 +34,61 @@ pub struct UserResponse {
     pub bio: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub token: Option<TokenPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoginUser {
+    pub email: String,
+    pub password: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct RegisterUser {
     pub email: String,
+    pub pin: String,
     pub password: String,
+}
+
+static EMAIL_REGEX: OnceCell<Regex> = OnceCell::const_new();
+
+async fn get_email_regex() -> &'static Regex {
+    EMAIL_REGEX
+        .get_or_init(|| async {
+            Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
+        })
+        .await
+}
+
+impl RegisterUser {
+    pub async fn validate(&self) -> Result<()> {
+        if self.email.is_empty()
+            || self.password.is_empty()
+            || self.pin.is_empty()
+            || self.pin.len() != 6
+        {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        if self.password.len() < 8 {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        if self.password.chars().any(|c| c.is_whitespace()) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        if self.pin.chars().any(|c| c.is_whitespace()) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        if self.email.chars().any(|c| c.is_whitespace()) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        // validate email format
+        let email_regex = get_email_regex().await;
+        if !email_regex.is_match(&self.email) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+
+        Ok(())
+    }
 }
 
 impl From<User> for UserResponse {
@@ -50,6 +101,7 @@ impl From<User> for UserResponse {
             bio: user.bio,
             created_at: user.created_at,
             updated_at: user.updated_at,
+            token: None,
         }
     }
 }
@@ -70,6 +122,9 @@ impl User {
         // )
         // .fetch_one(pool)
         // .await?;
+        if user.pin != "111111" {
+            return Err(crate::error::AppError::InvalidPin);
+        }
         let new_user = sqlx::query_as(
             r#"
             INSERT INTO users (username, email, password_hash)

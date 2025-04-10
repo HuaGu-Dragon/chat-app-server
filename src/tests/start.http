@@ -21,5 +21,36 @@ GET http://localhost:8080/summon_jwt/mike HTTP/1.1
 # The server should return a JWT token for the user "mike"
 @token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJtaWtlIiwiZXhwIjoxNzQ0NDI3NTM0LCJpYXQiOjE3NDQyMTE1MzR9.MVoRYjorRbN20HrnO-xgJn5Xta5VmF2k9YqcFNXmmL0
 
+@token2 = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbkBhZG1pbi5jb20iLCJleHAiOjE3NDQ1MDY4NTIsImlhdCI6MTc0NDI5MDg1Mn0.rXEbuLjgH1QisZpHh_DC3sTjonKypRgU9QUMdHBov2c
+
 POST http://localhost:8080/protect/login HTTP/1.1
 Authorization: Bearer {{token}}
+
+###
+# register
+# This is a test to register a new user
+# would validate the email and password
+# password is required to longer than 8 characters
+# The pin is 111111
+
+POST http://localhost:8080/api/auth/register HTTP/1.1
+Content-Type: application/json
+
+{
+    "email": "admin@admin.com",
+    "pin": "111111",
+    "password": "12345678"
+}
+
+###
+# login in
+# This is a test to login in with the email and password
+# wait for the server to return a JWT token
+
+POST http://localhost:8080/api/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+    "email": "admin@admin.com",
+    "password": "11111111"
+}

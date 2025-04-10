@@ -19,6 +19,16 @@ pub enum AppError {
     JwtError(#[from] jsonwebtoken::errors::Error),
     #[error("Unauthorized")]
     Unauthorized,
+    #[error("Invalid token")]
+    InvalidToken,
+    #[error("Invalid pin")]
+    InvalidPin,
+    #[error("Email not found")]
+    EmailNotFound,
+    #[error("Invalid input")]
+    InvalidInput,
+    #[error("Invalid password")]
+    InvalidPassword,
 }
 
 impl From<config::ConfigError> for AppError {
@@ -50,6 +60,11 @@ impl IntoResponse for AppError {
         let status = match self {
             AppError::ValidationError(_) => axum::http::StatusCode::BAD_REQUEST,
             AppError::Unauthorized => axum::http::StatusCode::UNAUTHORIZED,
+            AppError::InvalidToken => axum::http::StatusCode::UNAUTHORIZED,
+            AppError::InvalidPin => axum::http::StatusCode::BAD_REQUEST,
+            AppError::EmailNotFound => axum::http::StatusCode::NOT_FOUND,
+            AppError::InvalidInput => axum::http::StatusCode::BAD_REQUEST,
+            AppError::InvalidPassword => axum::http::StatusCode::UNAUTHORIZED,
             _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         };
         (status, self.to_string()).into_response()

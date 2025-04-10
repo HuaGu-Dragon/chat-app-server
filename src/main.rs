@@ -17,8 +17,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
 mod error;
+mod handlers;
 mod middleware;
 mod models;
+mod routes;
 mod service;
 mod state {
     pub mod app_state;
@@ -89,6 +91,7 @@ async fn main() {
     let app = Router::new()
         .route("/config", get(handler))
         .route("/summon_jwt/{user_id}", get(summer_jwt))
+        .nest("/api", routes::router())
         .nest(
             "/protect",
             Router::new().route("/login", post(test_login)).layer(

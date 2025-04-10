@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{middleware::auth::Claims, Result};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenPayload {
     pub access_token: String,
     pub token_type: String,

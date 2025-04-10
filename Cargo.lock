@@ -275,6 +275,7 @@ dependencies = [
  "config",
  "futures",
  "jsonwebtoken",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",
