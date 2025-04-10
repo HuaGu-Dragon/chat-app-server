@@ -57,34 +57,62 @@ impl From<User> for UserResponse {
 impl User {
     pub async fn create(pool: &PgPool, user: RegisterUser) -> Result<Self> {
         let password_hash = Self::password_hash(&user.password)?;
-        let new_user = sqlx::query_as!(
-            User,
+        // let new_user = sqlx::query_as!(
+        //     User,
+        //     r#"
+        //     INSERT INTO users (username, email, password_hash)
+        //     VALUES ($1, $2, $3)
+        //     RETURNING *
+        //     "#,
+        //     user.email,
+        //     user.email,
+        //     password_hash
+        // )
+        // .fetch_one(pool)
+        // .await?;
+        let new_user = sqlx::query_as(
             r#"
             INSERT INTO users (username, email, password_hash)
             VALUES ($1, $2, $3)
             RETURNING *
             "#,
-            user.email,
-            user.email,
-            password_hash
         )
+        .bind(&user.email)
+        .bind(&user.email)
+        .bind(password_hash)
         .fetch_one(pool)
         .await?;
         Ok(new_user)
     }
 
     pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<Self>> {
-        let user = sqlx::query_as!(User, r#"SELECT * FROM users WHERE email = $1"#, email)
-            .fetch_optional(pool)
-            .await?;
+        // let user = sqlx::query_as!(User, r#"SELECT * FROM users WHERE email = $1"#, email)
+        //     .fetch_optional(pool)
+        //     .await?;
+        let user = sqlx::query_as(
+            r#"
+            SELECT * FROM users WHERE email = $1
+            "#,
+        )
+        .bind(email)
+        .fetch_optional(pool)
+        .await?;
         Ok(user)
     }
 
     pub async fn email_exist(pool: &PgPool, email: &str) -> Result<bool> {
-        let exists = sqlx::query_scalar!(
-            r#"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"#,
-            email
+        // let exists = sqlx::query_scalar!(
+        //     r#"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"#,
+        //     email
+        // )
+        // .fetch_one(pool)
+        // .await?;
+        let exists: Option<bool> = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)
+            "#,
         )
+        .bind(email)
         .fetch_one(pool)
         .await?;
         Ok(exists.unwrap_or(false))
