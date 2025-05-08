@@ -4,6 +4,12 @@ GET http://localhost:8080/config HTTP/1.1
 
 ###
 
+# Clear User Table
+
+DELETE http://localhost:8080/delete HTTP/1.1
+
+###
+
 # jwt summon
 # This is a test to summon a JWT token from the server
 # The server should return a JWT token for the user "mike"
@@ -54,3 +60,14 @@ Content-Type: application/json
     "email": "admin@admin.com",
     "password": "12345678"
 }
+
+###
+
+POST http://localhost:8080/api/auth/pre_register HTTP/1.1
+Content-Type: application/json
+
+{
+    "email": "2960770843@qq.com"
+}
+
+###

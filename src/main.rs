@@ -1,18 +1,18 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use error::AppError;
 use middleware::auth::Claims;
 use state::app_state::AppState;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, time::interval};
 use tower_http::cors;
-use tracing::Level;
+use tracing::{info, Level};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
@@ -83,6 +83,32 @@ async fn main() {
 
     let app_state = Arc::new(app_state);
 
+    {
+        let pool = app_state.db_pool.clone();
+        tokio::spawn(async move {
+            let mut tick = interval(Duration::from_secs(60));
+            loop {
+                tick.tick().await;
+                match sqlx::query(
+                    r#"
+                    DELETE FROM create_users_table
+                    WHERE created_at < now() - INTERVAL '5 minutes'
+                    "#,
+                )
+                .execute(&pool)
+                .await
+                {
+                    Ok(n) => {
+                        info!("clean up {} pin", n.rows_affected())
+                    }
+                    Err(e) => {
+                        info!("clean up failed: {:?}", e)
+                    }
+                }
+            }
+        });
+    }
+
     let addr = format!(
         "{}:{}",
         app_state.config.server.host, app_state.config.server.port
@@ -91,6 +117,7 @@ async fn main() {
     let app = Router::new()
         .route("/config", get(handler))
         .route("/summon_jwt/{user_id}", get(summer_jwt))
+        .route("/delete", delete(delete_user_table))
         .nest("/api", routes::router())
         .nest(
             "/protect",
@@ -128,7 +155,15 @@ async fn handler(State(app_state): State<Arc<AppState>>) -> &'static str {
     tracing::info!("JWT config: {:?}", app_state.config.jwt);
     tracing::info!("Server config: {:?}", app_state.config.server);
     tracing::info!("Database config: {:?}", app_state.config.database);
+    tracing::info!("Email config: {:?}", app_state.config.email);
     "Hello, World!"
+}
+
+async fn delete_user_table(State(app_state): State<Arc<AppState>>) {
+    sqlx::query("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
+        .execute(&app_state.db_pool)
+        .await
+        .unwrap();
 }
 
 async fn test_login(claims: Claims) -> impl IntoResponse {

@@ -8,6 +8,7 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub jwt: JwtConfig,
     pub cors: CorsConfig,
+    pub email: EmailConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -37,6 +38,13 @@ pub struct CorsConfig {
     pub allowed_headers: Vec<String>,
     pub max_age: u64,
     pub allow_credentials: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct EmailConfig {
+    pub smtp_username: String,
+    pub smtp_server: String,
+    pub password: String,
 }
 
 pub fn load_config() -> Result<Config> {

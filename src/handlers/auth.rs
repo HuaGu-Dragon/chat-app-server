@@ -1,17 +1,47 @@
 use std::sync::Arc;
 
 use axum::{extract::State, Json};
+use rand::{distr::Alphanumeric, Rng};
 
 use crate::{
     error::AppError,
     models::{
-        user::{LoginUser, UserResponse},
+        user::{CreateUser, LoginUser, UserResponse},
         RegisterUser, User,
     },
     service::jwt::JwtService,
     state::app_state::AppState,
     Result,
 };
+
+pub fn generate_code(len: usize) -> String {
+    rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .map(char::from)
+        .collect()
+}
+
+pub async fn pre_register_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateUser>,
+) -> Result<()> {
+    payload.validate().await?;
+    if User::email_exist(&state.db_pool, &payload.email).await? {
+        return Err(AppError::ValidationError(
+            ("Email already exists").to_string(),
+        ));
+    }
+    User::send_pin(
+        &state.db_pool,
+        &state.config.email.smtp_username,
+        &state.config.email.password,
+        &state.config.email.smtp_server,
+        payload.email,
+    )
+    .await?;
+    Ok(())
+}
 
 pub async fn register_handler(
     State(state): State<Arc<AppState>>,

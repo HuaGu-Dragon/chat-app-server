@@ -1,4 +1,5 @@
-use axum::response::IntoResponse;
+use axum::{response::IntoResponse, Json};
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
@@ -67,6 +68,9 @@ impl IntoResponse for AppError {
             AppError::InvalidPassword => axum::http::StatusCode::UNAUTHORIZED,
             _ => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         };
-        (status, self.to_string()).into_response()
+        let body = Json(json!({
+            "error": self.to_string()
+        }));
+        (status, body).into_response()
     }
 }

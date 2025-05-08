@@ -1,4 +1,3 @@
-use axum::extract::FromRef;
 use sqlx::PgPool;
 
 use crate::config::Config;

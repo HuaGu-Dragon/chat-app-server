@@ -3,13 +3,18 @@ use argon2::{
     PasswordVerifier,
 };
 use chrono::{DateTime, Utc};
+use lettre::{
+    message::header::ContentType, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
+    AsyncTransport, Message, Tokio1Executor,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sqlx::{prelude::FromRow, PgPool};
 use tokio::sync::OnceCell;
+use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::{service::jwt::TokenPayload, Result};
+use crate::{handlers::auth::generate_code, service::jwt::TokenPayload, Result};
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct User {
@@ -44,6 +49,11 @@ pub struct LoginUser {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct CreateUser {
+    pub email: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct RegisterUser {
     pub email: String,
     pub pin: String,
@@ -60,13 +70,40 @@ async fn get_email_regex() -> &'static Regex {
         .await
 }
 
-impl RegisterUser {
+impl CreateUser {
     pub async fn validate(&self) -> Result<()> {
-        if self.email.is_empty()
-            || self.password.is_empty()
-            || self.pin.is_empty()
-            || self.pin.len() != 6
-        {
+        if self.email.is_empty() {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        if self.email.chars().any(|c| c.is_whitespace()) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        let email_regex = get_email_regex().await;
+        if !email_regex.is_match(&self.email) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        Ok(())
+    }
+}
+
+impl RegisterUser {
+    async fn validate_email(&self) -> Result<()> {
+        if self.email.is_empty() {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        if self.email.chars().any(|c| c.is_whitespace()) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        let email_regex = get_email_regex().await;
+        if !email_regex.is_match(&self.email) {
+            return Err(crate::error::AppError::InvalidInput);
+        }
+        Ok(())
+    }
+
+    pub async fn validate(&self) -> Result<()> {
+        self.validate_email().await?;
+        if self.password.is_empty() || self.pin.is_empty() || self.pin.len() != 6 {
             return Err(crate::error::AppError::InvalidInput);
         }
         if self.password.len() < 8 {
@@ -76,14 +113,6 @@ impl RegisterUser {
             return Err(crate::error::AppError::InvalidInput);
         }
         if self.pin.chars().any(|c| c.is_whitespace()) {
-            return Err(crate::error::AppError::InvalidInput);
-        }
-        if self.email.chars().any(|c| c.is_whitespace()) {
-            return Err(crate::error::AppError::InvalidInput);
-        }
-        // validate email format
-        let email_regex = get_email_regex().await;
-        if !email_regex.is_match(&self.email) {
             return Err(crate::error::AppError::InvalidInput);
         }
 
@@ -107,6 +136,57 @@ impl From<User> for UserResponse {
 }
 
 impl User {
+    pub async fn send_pin(
+        pool: &PgPool,
+        smtp_username: &str,
+        smtp_password: &str,
+        smtp_server: &str,
+        to: String,
+    ) -> Result<()> {
+        let pin = Self::create_user(pool, &to).await?;
+
+        let email = Message::builder()
+            .from(smtp_username.parse().unwrap())
+            .to(to.parse().unwrap())
+            .subject("Your Pin Code")
+            .header(ContentType::TEXT_PLAIN)
+            .body(String::from(pin))
+            .unwrap();
+
+        let cred = Credentials::new(smtp_username.to_owned(), smtp_password.to_owned());
+
+        let mailer: AsyncSmtpTransport<Tokio1Executor> =
+            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(smtp_server)
+                .unwrap()
+                .credentials(cred)
+                .build();
+
+        match mailer.send(email).await {
+            Ok(_) => info!("send email success"),
+            Err(e) => warn!("send email error: {:?}", e),
+        };
+
+        Ok(())
+    }
+
+    pub async fn create_user(pool: &PgPool, email: &str) -> Result<String> {
+        let pin = generate_code(6);
+        sqlx::query(
+            r#"
+            INSERT INTO create_users_table (email, pin)
+            VALUES ($1, $2)
+            ON CONFLICT (email) DO UPDATE
+                SET pin = EXCLUDED.pin,
+                    created_at = now()
+            "#,
+        )
+        .bind(email)
+        .bind(&pin)
+        .execute(pool)
+        .await?;
+        Ok(pin)
+    }
+
     pub async fn create(pool: &PgPool, user: RegisterUser) -> Result<Self> {
         let password_hash = Self::password_hash(&user.password)?;
         // let new_user = sqlx::query_as!(
@@ -122,8 +202,24 @@ impl User {
         // )
         // .fetch_one(pool)
         // .await?;
-        if user.pin != "111111" {
-            return Err(crate::error::AppError::InvalidPin);
+        let pin: Option<String> = sqlx::query_scalar(
+            r#"
+            SELECT pin
+            FROM create_users_table
+            WHERE email = $1
+            "#,
+        )
+        .bind(&user.email)
+        .fetch_optional(pool)
+        .await?;
+        if let Some(pin) = pin {
+            if pin != user.pin {
+                return Err(crate::error::AppError::InvalidPin);
+            }
+        } else {
+            return Err(crate::error::AppError::ValidationError(
+                "pin code not found. Please register again".to_owned(),
+            ));
         }
         let new_user = sqlx::query_as(
             r#"
